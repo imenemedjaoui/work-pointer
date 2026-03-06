@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pointage</title>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      gap: 36px;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* --- BOUTON POINTER --- */
+    #punch-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    #punch-btn {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      transition: transform 0.15s, box-shadow 0.15s, background 0.3s;
+      outline: none;
+    }
+
+    #punch-btn.active {
+      background: #3b82f6;
+      box-shadow: 0 0 40px #3b82f680, 0 0 0 6px #1e3a5f;
+      color: #fff;
+    }
+
+    #punch-btn.active:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 55px #3b82f6aa, 0 0 0 6px #1e3a5f;
+    }
+
+    #punch-btn.active:active {
+      transform: scale(0.97);
+    }
+
+    #punch-btn.done {
+      background: #1e293b;
+      box-shadow: 0 0 0 6px #0f172a;
+      color: #22c55e;
+      cursor: default;
+    }
+
+    #punch-status {
+      font-size: 0.9rem;
+      color: #64748b;
+      min-height: 1.2em;
+      text-align: center;
+    }
+
+    #punch-status.pointe {
+      color: #22c55e;
+      font-weight: 600;
+    }
+
+    /* --- STATS --- */
+    #stats {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #64748b;
+    }
+
+    #stats strong {
+      color: #3b82f6;
+      font-size: 1.1rem;
+    }
+
+    /* --- FICHIER JSON --- */
+    #file-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8rem;
+    }
+
+    #file-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #475569;
+    }
+
+    #file-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #475569;
+      flex-shrink: 0;
+    }
+
+    #file-dot.linked { background: #22c55e; }
+
+    #file-btn {
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    #file-btn:hover {
+      background: #334155;
+      color: #e2e8f0;
+    }
+
+    #export-btn {
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    #export-btn:hover {
+      background: #334155;
+      color: #22c55e;
+    }
+
+    #export-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    /* --- CALENDRIER --- */
+    #calendar-section {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    @media (min-width: 640px) {
+      #calendar-section { max-width: 560px; }
+      .day-cell { font-size: 1rem; }
+      .month-title { font-size: 1.15rem; }
+    }
+
+    .month-block {
+      background: #1e293b;
+      border-radius: 16px;
+      padding: 24px;
+    }
+
+    .month-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .nav-btn {
+      background: none;
+      border: none;
+      color: #64748b;
+      font-size: 1.3rem;
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+      line-height: 1;
+    }
+
+    .nav-btn:hover { color: #e2e8f0; background: #334155; }
+
+    .month-title {
+      font-size: 1rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+    }
+
+    .days-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+
+    .day-header {
+      text-align: center;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #475569;
+      text-transform: uppercase;
+      padding-bottom: 4px;
+    }
+
+    .day-cell {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 500;
+      background: #0f1117;
+      color: #475569;
+    }
+
+    .day-cell.present {
+      background: #1d4ed8;
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 0 12px #3b82f640;
+    }
+
+    .day-cell.today {
+      outline: 2px solid #3b82f6;
+      outline-offset: -2px;
+      color: #e2e8f0;
+    }
+
+    .day-cell.today.present {
+      outline-color: #22c55e;
+    }
+
+    .day-cell.empty {
+      background: transparent;
+    }
+
+    /* --- CALCUL TJ --- */
+    #tj-section {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    @media (min-width: 640px) {
+      #tj-section { max-width: 560px; }
+    }
+
+    #tj-block {
+      background: #1e293b;
+      border-radius: 16px;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    #tj-title {
+      font-size: 1rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #475569;
+      margin-bottom: 6px;
+    }
+
+    #tj-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    @media (max-width: 480px) {
+      #tj-row {
+        flex-direction: column;
+        align-items: center;
+      }
+      #tj-eq { padding: 0; }
+    }
+
+    /* Groupe input + select */
+    #tj-group {
+      display: flex;
+      align-items: center;
+      background: #0f1117;
+      border: 1.5px solid #2d3748;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+      flex-shrink: 0;
+    }
+
+    #tj-group:focus-within {
+      border-color: #7dd3fc55;
+    }
+
+    #tj-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #475569;
+      padding: 0 10px 0 14px;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    #tj-input {
+      width: 90px;
+      background: transparent;
+      border: none;
+      border-left: 1.5px solid #2d3748;
+      color: #e2e8f0;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: inherit;
+      padding: 11px 10px;
+      outline: none;
+    }
+
+    #tj-input::placeholder { color: #2d3748; }
+    #tj-input::-webkit-outer-spin-button,
+    #tj-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    #tj-input[type=number] { appearance: textfield; -moz-appearance: textfield; }
+
+    /* Séparateur vertical */
+    #tj-sep {
+      width: 1.5px;
+      height: 20px;
+      background: #2d3748;
+      flex-shrink: 0;
+    }
+
+    #tj-currency {
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23475569' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+      border: none;
+      color: #94a3b8;
+      font-size: 0.82rem;
+      font-weight: 600;
+      font-family: inherit;
+      padding: 11px 28px 11px 12px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Séparateur entre groupe et total */
+    #tj-eq {
+      font-size: 1.1rem;
+      color: #2d3748;
+      padding: 0 14px;
+      flex-shrink: 0;
+      font-weight: 300;
+    }
+
+    /* Total */
+    #tj-result {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    #tj-amount {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #7dd3fc;
+      letter-spacing: -0.02em;
+      transition: color 0.2s;
+      white-space: nowrap;
+    }
+
+    #tj-amount.zero { color: #2d3748; }
+
+    #tj-currency-label {
+      font-size: 1.6rem;
+      color: #475569;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    #tj-detail {
+      font-size: 1rem;
+      color: #374151;
+      padding-left: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Pointage de présence</h1>
+
+  <section id="punch-section">
+    <button id="punch-btn" class="active">POINTER</button>
+    <p id="punch-status"></p>
+  </section>
+
+  <p id="stats"></p>
+
+  <div id="file-bar">
+    <div id="file-indicator">
+      <div id="file-dot"></div>
+      <span id="file-label">Aucun fichier lié</span>
+    </div>
+    <button id="file-btn">Lier pointage.json</button>
+    <button id="export-btn">Exporter XLSX</button>
+  </div>
+
+  <section id="calendar-section">
+    <div class="month-block">
+      <div class="month-nav">
+        <button class="nav-btn" id="prev-btn">&#8249;</button>
+        <div class="month-title" id="month-title"></div>
+        <button class="nav-btn" id="next-btn">&#8250;</button>
+      </div>
+      <div class="days-grid" id="days-grid"></div>
+    </div>
+  </section>
+
+    <section id="tj-section">
+    <div id="tj-block">
+      <div id="tj-title">Revenu estimé</div>
+      <div id="tj-row">
+        <div id="tj-group">
+          <span id="tj-label">TJ</span>
+          <input id="tj-input" type="number" min="0" step="0.01" placeholder="000" value="60" />
+          <div id="tj-sep"></div>
+          <select id="tj-currency">
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+            <option value="CHF">CHF</option>
+            <option value="CAD">CAD</option>
+            <option value="AUD">AUD</option>
+            <option value="NZD">NZD</option>
+            <option value="JPY">JPY</option>
+            <option value="CNY">CNY</option>
+            <option value="HKD">HKD</option>
+            <option value="SGD">SGD</option>
+            <option value="INR">INR</option>
+            <option value="AED">AED</option>
+            <option value="SAR">SAR</option>
+            <option value="QAR">QAR</option>
+            <option value="KWD">KWD</option>
+            <option value="BHD">BHD</option>
+            <option value="OMR">OMR</option>
+            <option value="MAD">MAD</option>
+            <option value="TND">TND</option>
+            <option value="DZD">DZD</option>
+            <option value="EGP">EGP</option>
+            <option value="TRY">TRY</option>
+            <option value="SEK">SEK</option>
+            <option value="NOK">NOK</option>
+            <option value="DKK">DKK</option>
+            <option value="PLN">PLN</option>
+            <option value="CZK">CZK</option>
+            <option value="HUF">HUF</option>
+            <option value="RON">RON</option>
+            <option value="BRL">BRL</option>
+            <option value="MXN">MXN</option>
+            <option value="ZAR">ZAR</option>
+          </select>
+        </div>
+        <span id="tj-eq">=</span>
+        <div id="tj-result">
+          <span id="tj-amount" class="zero">0,00</span>
+          <span id="tj-currency-label">€</span>
+        </div>
+      </div>
+      <div id="tj-detail"></div>
+    </div>
+  </section>
+
+  <script>
+    // ── Jours pré-remplis
+    const SEED = [
+      '2026-01-26','2026-01-27','2026-01-28','2026-01-29','2026-01-30',
+      '2026-02-03','2026-02-04',
+      '2026-03-02','2026-03-03','2026-03-04','2026-03-05',
+    ];
+
+    const STORAGE_KEY = 'pointage_days';
+    const DAY_NAMES   = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+    const MONTH_NAMES = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+    // ── Vue courante du calendrier
+    const now = new Date();
+    let viewYear  = now.getFullYear();
+    let viewMonth = now.getMonth();
+
+    // ── Données
+    let days = new Set();
+    let fileHandle = null;
+
+    // ── IndexedDB pour persister le file handle
+    function openDB() {
+      return new Promise((res, rej) => {
+        const req = indexedDB.open('pointage_db', 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+        req.onsuccess = e => res(e.target.result);
+        req.onerror   = rej;
+      });
+    }
+
+    async function getStoredHandle() {
+      try {
+        const db = await openDB();
+        return new Promise(res => {
+          const tx  = db.transaction('handles', 'readonly');
+          const req = tx.objectStore('handles').get('main');
+          req.onsuccess = e => res(e.target.result || null);
+          req.onerror   = () => res(null);
+        });
+      } catch { return null; }
+    }
+
+    async function storeHandle(handle) {
+      try {
+        const db = await openDB();
+        return new Promise(res => {
+          const tx = db.transaction('handles', 'readwrite');
+          tx.objectStore('handles').put(handle, 'main');
+          tx.oncomplete = res;
+        });
+      } catch {}
+    }
+
+    // ── Lecture / écriture JSON
+    async function readFromFile(handle) {
+      try {
+        const perm = await handle.queryPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') {
+          const req = await handle.requestPermission({ mode: 'readwrite' });
+          if (req !== 'granted') return null;
+        }
+        const file = await handle.getFile();
+        const text = await file.text();
+        const data = JSON.parse(text);
+        return Array.isArray(data.jours) ? data.jours : null;
+      } catch { return null; }
+    }
+
+    async function writeToFile(handle, daysSet) {
+      try {
+        const perm = await handle.queryPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') {
+          const req = await handle.requestPermission({ mode: 'readwrite' });
+          if (req !== 'granted') return false;
+        }
+        const data = {
+          jours: [...daysSet].sort(),
+          mis_a_jour: new Date().toISOString()
+        };
+        const writable = await handle.createWritable();
+        await writable.write(JSON.stringify(data, null, 2));
+        await writable.close();
+        return true;
+      } catch { return false; }
+    }
+
+    // ── localStorage (fallback)
+    function loadFromStorage() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+      catch { return []; }
+    }
+
+    function saveToStorage(set) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...set].sort()));
+    }
+
+    // ── ISO du jour
+    function todayISO() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    // ── Interface fichier lié
+    function setFileLinked(name) {
+      document.getElementById('file-dot').className   = 'linked';
+      document.getElementById('file-label').textContent = name;
+      document.getElementById('file-btn').textContent  = 'Changer de fichier';
+    }
+
+    function setFileUnlinked() {
+      document.getElementById('file-dot').className   = '';
+      document.getElementById('file-label').textContent = 'Aucun fichier lié';
+      document.getElementById('file-btn').textContent  = 'Lier pointage.json';
+    }
+
+    // ── Lier un fichier JSON
+    async function linkFile() {
+      if (!globalThis.showSaveFilePicker) {
+        alert("Votre navigateur ne supporte pas l'accès aux fichiers locaux.\nLes données sont sauvegardées dans le navigateur.");
+        return;
+      }
+      try {
+        const handle = await globalThis.showSaveFilePicker({
+          suggestedName: 'pointage.json',
+          types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+        });
+        fileHandle = handle;
+        await storeHandle(handle);
+
+        // Lire le contenu existant si le fichier n'est pas vide
+        const existing = await readFromFile(handle);
+        if (existing && existing.length > 0) {
+          existing.forEach(d => days.add(d));
+        }
+        // Fusionner et réécrire
+        await writeToFile(handle, days);
+        setFileLinked(handle.name);
+        refresh();
+      } catch (e) {
+        if (e.name !== 'AbortError') console.error(e);
+      }
+    }
+
+    // ── Sauvegarde complète
+    async function saveAll() {
+      saveToStorage(days);
+      if (fileHandle) await writeToFile(fileHandle, days);
+    }
+
+    // ── Rendu calendrier
+    function renderCalendar() {
+      document.getElementById('month-title').textContent = `${MONTH_NAMES[viewMonth]} ${viewYear}`;
+
+      const grid = document.getElementById('days-grid');
+      grid.innerHTML = '';
+      const today = todayISO();
+
+      DAY_NAMES.forEach(d => {
+        const h = document.createElement('div');
+        h.className = 'day-header';
+        h.textContent = d;
+        grid.appendChild(h);
+      });
+
+      let offset = new Date(viewYear, viewMonth, 1).getDay();
+      offset = offset === 0 ? 6 : offset - 1;
+
+      for (let i = 0; i < offset; i++) {
+        const e = document.createElement('div');
+        e.className = 'day-cell empty';
+        grid.appendChild(e);
+      }
+
+      const total = new Date(viewYear, viewMonth + 1, 0).getDate();
+      for (let d = 1; d <= total; d++) {
+        const iso  = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const cell = document.createElement('div');
+        cell.className = 'day-cell';
+        if (days.has(iso))  cell.classList.add('present');
+        if (iso === today)  cell.classList.add('today');
+        cell.textContent = d;
+        grid.appendChild(cell);
+      }
+    }
+
+    // ── Bouton pointer
+    function updateButton() {
+      const btn    = document.getElementById('punch-btn');
+      const status = document.getElementById('punch-status');
+      const today  = todayISO();
+      if (days.has(today)) {
+        btn.className    = 'done';
+        btn.textContent  = 'POINTÉ';
+        status.className = 'pointe';
+        status.textContent = 'Présence enregistrée aujourd\'hui.';
+      } else {
+        btn.className    = 'active';
+        btn.textContent  = 'POINTER';
+        status.className = '';
+        status.textContent = '';
+      }
+    }
+
+    // ── Stats
+    function updateStats() {
+      const n = days.size;
+      document.getElementById('stats').innerHTML =
+        `Total pointé : <strong>${n}</strong> jour${n > 1 ? 's' : ''}`;
+    }
+
+    // ── Rafraîchir tout
+    function refresh() {
+      updateButton();
+      updateStats();
+      renderCalendar();
+      updateTJ();
+    }
+
+    // ── Navigation
+    document.getElementById('prev-btn').addEventListener('click', () => {
+      viewMonth--;
+      if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+      renderCalendar();
+    });
+
+    document.getElementById('next-btn').addEventListener('click', () => {
+      viewMonth++;
+      if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      renderCalendar();
+    });
+
+    // ── Pointer
+    document.getElementById('punch-btn').addEventListener('click', async () => {
+      const today = todayISO();
+      if (days.has(today)) return;
+      days.add(today);
+      await saveAll();
+      refresh();
+    });
+
+    // ── Lier fichier
+    document.getElementById('file-btn').addEventListener('click', linkFile);
+
+    // ── Export XLSX
+    async function exportXLSX() {
+      const btn = document.getElementById('export-btn');
+      btn.disabled = true;
+      btn.textContent = 'Génération…';
+
+      const C = {
+        bg:      'FF141920', // fond général
+        row1:    'FF1C2535', // ligne impaire
+        row2:    'FF212D40', // ligne paire (légèrement plus claire)
+        header:  'FF111827', // fond en-têtes
+        title:   'FF1A2640', // fond titre
+        total:   'FF162032', // fond total
+        accent:  'FF7DD3FC', // bleu ciel doux (sky-300)
+        text:    'FFD1D5DB', // blanc cassé (gray-300)
+        muted:   'FF6B7280', // gris moyen
+        border:  'FF2D3748', // bordure subtile
+      };
+
+      const fill   = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+      const font   = (argb, bold = false, size = 11) => ({ color: { argb }, bold, size, name: 'Segoe UI' });
+      const border = () => ({
+        top:    { style: 'thin', color: { argb: C.border } },
+        bottom: { style: 'thin', color: { argb: C.border } },
+        left:   { style: 'thin', color: { argb: C.border } },
+        right:  { style: 'thin', color: { argb: C.border } },
+      });
+
+      const FULL_DAYS   = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+      const FULL_MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+      function getWeekNumber(iso) {
+        const d = new Date(iso + 'T00:00:00');
+        d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+        const y = new Date(d.getFullYear(), 0, 1);
+        return Math.ceil((((d - y) / 86400000) + 1) / 7);
+      }
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Work Pointer';
+      wb.created = new Date();
+
+      const ws = wb.addWorksheet('Pointage', {
+        properties: { tabColor: { argb: C.accent } },
+        views: [{ showGridLines: false }],
+      });
+
+      ws.columns = [
+        { key: 'date',    width: 16 },
+        { key: 'jour',    width: 18 },
+        { key: 'mois',    width: 16 },
+        { key: 'semaine', width: 14 },
+      ];
+
+      // Titre
+      ws.mergeCells('A1:D1');
+      const title = ws.getCell('A1');
+      title.value     = 'POINTAGE DE PRÉSENCE';
+      title.fill      = fill(C.title);
+      title.font      = font(C.accent, true, 14);
+      title.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 38;
+
+      // Spacer
+      ws.getRow(2).height = 5;
+      ['A2','B2','C2','D2'].forEach(c => { ws.getCell(c).fill = fill(C.bg); });
+
+      // En-têtes colonnes
+      ['Date','Jour','Mois','Semaine N°'].forEach((h, i) => {
+        const cell = ws.getRow(3).getCell(i + 1);
+        cell.value     = h;
+        cell.fill      = fill(C.header);
+        cell.font      = font(C.muted, true, 11);
+        cell.border    = border();
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+      ws.getRow(3).height = 28;
+
+      // Données (lignes alternées)
+      const sorted = [...days].sort();
+      sorted.forEach((iso, idx) => {
+        const date    = new Date(iso + 'T00:00:00');
+        const row     = ws.getRow(4 + idx);
+        row.height    = 24;
+        const rowFill = idx % 2 === 0 ? C.row1 : C.row2;
+        [iso, FULL_DAYS[date.getDay()], FULL_MONTHS[date.getMonth()], getWeekNumber(iso)]
+          .forEach((val, col) => {
+            const cell     = row.getCell(col + 1);
+            cell.value     = val;
+            cell.fill      = fill(rowFill);
+            cell.font      = font(C.text, false, 11);
+            cell.border    = border();
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          });
+      });
+
+      // Spacer avant total
+      const spacerRow = 4 + sorted.length;
+      ws.getRow(spacerRow).height = 8;
+      ['A','B','C','D'].forEach(c => { ws.getCell(`${c}${spacerRow}`).fill = fill(C.bg); });
+
+      // Ligne total
+      const totalRow = spacerRow + 1;
+      ws.mergeCells(`A${totalRow}:C${totalRow}`);
+      const labelCell = ws.getCell(`A${totalRow}`);
+      labelCell.value     = 'Total des jours pointés';
+      labelCell.fill      = fill(C.total);
+      labelCell.font      = font(C.muted, true, 11);
+      labelCell.border    = border();
+      labelCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+      const countCell = ws.getCell(`D${totalRow}`);
+      countCell.value     = sorted.length;
+      countCell.fill      = fill(C.total);
+      countCell.font      = font(C.accent, true, 13);
+      countCell.border    = border();
+      countCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(totalRow).height = 28;
+
+      // Téléchargement
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url    = URL.createObjectURL(blob);
+      const a      = document.createElement('a');
+      a.href       = url;
+      a.download   = 'pointage.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      btn.disabled    = false;
+      btn.textContent = 'Exporter XLSX';
+    }
+
+    document.getElementById('export-btn').addEventListener('click', exportXLSX);
+
+    // ── Calcul TJ
+    const CURRENCY_SYMBOLS = {
+      EUR: '€',  USD: '$',   GBP: '£',   CHF: 'CHF', CAD: '$',   AUD: '$',
+      NZD: '$',  JPY: '¥',   CNY: '¥',   HKD: 'HK$', SGD: 'S$',  INR: '₹',
+      AED: 'د.إ', SAR: '﷼',  QAR: 'ر.ق', KWD: 'د.ك', BHD: '.د.ب', OMR: 'ر.ع.',
+      MAD: 'MAD', TND: 'TND', DZD: 'DA',  EGP: '£',  TRY: '₺',  SEK: 'kr',
+      NOK: 'kr',  DKK: 'kr',  PLN: 'zł',  CZK: 'Kč', HUF: 'Ft',  RON: 'lei',
+      BRL: 'R$',  MXN: '$',   ZAR: 'R',
+    };
+
+    function updateTJ() {
+      const tj       = parseFloat(document.getElementById('tj-input').value) || 0;
+      const currency = document.getElementById('tj-currency').value;
+      const total    = tj * days.size;
+      const symbol   = CURRENCY_SYMBOLS[currency] || currency;
+
+      const amountEl   = document.getElementById('tj-amount');
+      const detailEl   = document.getElementById('tj-detail');
+      const currLbl    = document.getElementById('tj-currency-label');
+
+      const formatted = total.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      amountEl.textContent = formatted;
+      amountEl.className   = total === 0 ? 'zero' : '';
+      currLbl.textContent  = symbol;
+
+      if (tj > 0 && days.size > 0) {
+        detailEl.textContent = `${days.size} jour${days.size > 1 ? 's' : ''} × ${tj.toLocaleString('fr-FR')} ${symbol}`;
+      } else {
+        detailEl.textContent = '';
+      }
+    }
+
+    document.getElementById('tj-input').addEventListener('input', updateTJ);
+    document.getElementById('tj-currency').addEventListener('change', () => {
+      document.getElementById('tj-currency-label').textContent =
+        CURRENCY_SYMBOLS[document.getElementById('tj-currency').value] || document.getElementById('tj-currency').value;
+      updateTJ();
+    });
+
+    // ── Initialisation
+    (async () => {
+      // Charger données de base (localStorage + seed)
+      const stored = loadFromStorage();
+      days = new Set([...SEED, ...stored]);
+
+      // Essayer de restaurer le file handle
+      const handle = await getStoredHandle();
+      if (handle) {
+        try {
+          const perm = await handle.queryPermission({ mode: 'readwrite' });
+          if (perm === 'granted') {
+            const existing = await readFromFile(handle);
+            if (existing) existing.forEach(d => days.add(d));
+            fileHandle = handle;
+            setFileLinked(handle.name);
+          } else {
+            setFileUnlinked();
+          }
+        } catch { setFileUnlinked(); }
+      } else {
+        setFileUnlinked();
+      }
+
+      refresh();
+    })();
+  </script>
+</body>
+</html>
